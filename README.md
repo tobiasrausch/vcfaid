@@ -19,17 +19,20 @@ Install Linux packages:
 Install htslib:
 
 `git clone https://github.com/samtools/htslib.git`
+
 `cd htslib && make && make lib-static && cd ..`
 
 Set environment variables for boost libraries and htslib:
 
-export BOOST_ROOT=/usr
-export SEQTK_ROOT=<htslib_path>
+`export BOOST_ROOT=/usr`
+
+`export SEQTK_ROOT=<htslib_path>`
 
 Build vcfaid:
 
-git clone https://github.com/tobiasrausch/vcfaid.git
-cd vcfaid/ && touch .htslib .boost && make src/gq && cd ..
+`git clone https://github.com/tobiasrausch/vcfaid.git`
+
+`cd vcfaid/ && touch .htslib .boost && make src/gq && cd ..`
 
 
 Running gq
