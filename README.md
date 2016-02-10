@@ -32,7 +32,7 @@ Build vcfaid:
 
 `git clone https://github.com/tobiasrausch/vcfaid.git`
 
-`cd vcfaid/ && touch .htslib .boost && make src/gq && cd ..`
+`cd vcfaid/ && touch .htslib .boost && make all && cd ..`
 
 
 Running gq
