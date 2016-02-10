@@ -1,3 +1,5 @@
+.htslib
+.boost
 src/gq
 
 # Compiled Object files
