@@ -76,9 +76,7 @@ _processVCF(TConfig const& c) {
   int ngt = 0;
   int32_t* gt = NULL;
   bcf1_t* rec = bcf_init();
-  uint32_t varc = 0;
   while (bcf_read(ifile, hdr, rec) == 0) {
-    if (varc++ > 12000) break;
     bcf_unpack(rec, BCF_UN_ALL);
     typedef std::vector<double> TGLs;
     typedef std::vector<TGLs> TGlVector;
