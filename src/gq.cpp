@@ -78,7 +78,8 @@ _processVCF(TConfig const& c) {
   bcf1_t* rec = bcf_init();
   while (bcf_read(ifile, hdr, rec) == 0) {
     bcf_unpack(rec, BCF_UN_ALL);
-    typedef std::vector<double> TGLs;
+    typedef double TAccuracyType;
+    typedef std::vector<TAccuracyType> TGLs;
     typedef std::vector<TGLs> TGlVector;
     TGlVector glVector;
     bcf_get_format_float(hdr, rec, "GL", &gl, &ngl);
@@ -91,26 +92,28 @@ _processVCF(TConfig const& c) {
         ++ac[bcf_gt_allele(gt[i*2])];
         ++ac[bcf_gt_allele(gt[i*2 + 1])];
 	TGLs glTriple(3);
-	for(int k = 0; k<3; k++) glTriple[k] = std::pow(10, gl[i * 3 + k]);
+	for(int k = 0; k<3; k++) glTriple[k] = std::pow((TAccuracyType) 10.0, (TAccuracyType) gl[i * 3 + k]);
 	glVector.push_back(glTriple);
       }
     }
-    double hweAF0 = 0.5;
-    double hweAF1 = 0.5;
-    _estBiallelicAF(glVector, hweAF0, hweAF1);
-    float afest = hweAF1;
+    TAccuracyType hweAF[2];
+    hweAF[0] = 0.5;
+    hweAF[1] = 0.5;
+    _estBiallelicAF(glVector, hweAF);
+    float afest = hweAF[1];
     bcf_update_info_float(hdr_out, rec, "AFmle", &afest, 1);
-    int32_t acest = boost::math::iround(hweAF1 * (ac[0] + ac[1]));
+    int32_t acest = boost::math::iround(hweAF[1] * (ac[0] + ac[1]));
     bcf_update_info_int32(hdr_out, rec, "ACmle", &acest, 1);
-    double mlehomRef = 1.0/3.0;
-    double mlehet = 1.0/3.0;
-    double mlehomAlt = 1.0/3.0;
-    _estBiallelicGTFreq(glVector, mlehomRef, mlehet, mlehomAlt);
-    double gf[3];
-    gf[0] = mlehomRef;
-    gf[1] = mlehet;
-    gf[2] = mlehomAlt;
-    bcf_update_info_float(hdr_out, rec, "GFmle", &gf, 3);
+    TAccuracyType mleGTFreq[3];
+    mleGTFreq[0] = 0;
+    mleGTFreq[1] = 0;
+    mleGTFreq[2] = 0;
+    _estBiallelicGTFreq(glVector, mleGTFreq);
+    float gfmle[3];
+    gfmle[0] = mleGTFreq[0];
+    gfmle[1] = mleGTFreq[1];
+    gfmle[2] = mleGTFreq[2];
+    bcf_update_info_float(hdr_out, rec, "GFmle", &gfmle, 3);
     bcf_write1(fp, hdr_out, rec);
   }
   bcf_destroy(rec);
