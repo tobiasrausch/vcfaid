@@ -31,9 +31,9 @@ THE SOFTWARE.
 namespace vcfaid
 {
 
-  template<typename TGlVector, typename TValue>
-    inline void
-    _estBiallelicAF(TGlVector const& glVector, TValue (&hweAF)[2]) {
+  template<typename TConfig, typename TGlVector, typename TValue>
+  inline void
+  _estBiallelicAF(TConfig const& c, TGlVector const& glVector, TValue (&hweAF)[2]) {
     if (!glVector.empty()) {
       TValue numGl = glVector.size();
       TValue afprior[2];
@@ -43,7 +43,7 @@ namespace vcfaid
       TValue gt[3];
       TValue p;
       TValue err = 1;
-      while(err > 1e-20) {
+      for(std::size_t count = 0; ((err > c.epsilon) && (count<c.maxiter)); ++count) {
 	gtprior[0] = afprior[0] * afprior[0];
 	gtprior[1] = 2 * afprior[0] * afprior[1];
 	gtprior[2] = afprior[1] * afprior[1];
@@ -71,9 +71,9 @@ namespace vcfaid
   }
 
 
-  template<typename TGlVector, typename TValue>
+  template<typename TConfig, typename TGlVector, typename TValue>
   inline void
-  _estBiallelicGTFreq(TGlVector const& glVector, TValue (&mleGTFreq)[3]) {
+  _estBiallelicGTFreq(TConfig const& c, TGlVector const& glVector, TValue (&mleGTFreq)[3]) {
     if (!glVector.empty()) {
       TValue numGl = glVector.size();
       TValue prior[3];
@@ -83,7 +83,7 @@ namespace vcfaid
       TValue gt[3];
       TValue p;
       TValue err = 1;
-      for(std::size_t count = 0; ((err > 1e-20) && (count<1000)); ++count) {
+      for(std::size_t count = 0; ((err > c.epsilon) && (count<c.maxiter)); ++count) {
 	mleGTFreq[0] = 0;
 	mleGTFreq[1] = 0;
 	mleGTFreq[2] = 0;

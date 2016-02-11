@@ -45,6 +45,8 @@ Contact: Tobias Rausch (rausch@embl.de)
 using namespace vcfaid;
 
 struct Config {
+  uint32_t maxiter;
+  double epsilon;
   boost::filesystem::path outfile;
   boost::filesystem::path vcffile;
 };
@@ -99,7 +101,7 @@ _processVCF(TConfig const& c) {
     TAccuracyType hweAF[2];
     hweAF[0] = 0.5;
     hweAF[1] = 0.5;
-    _estBiallelicAF(glVector, hweAF);
+    _estBiallelicAF(c, glVector, hweAF);
     float afest = hweAF[1];
     bcf_update_info_float(hdr_out, rec, "AFmle", &afest, 1);
     int32_t acest = boost::math::iround(hweAF[1] * (ac[0] + ac[1]));
@@ -108,7 +110,7 @@ _processVCF(TConfig const& c) {
     mleGTFreq[0] = 0;
     mleGTFreq[1] = 0;
     mleGTFreq[2] = 0;
-    _estBiallelicGTFreq(glVector, mleGTFreq);
+    _estBiallelicGTFreq(c, glVector, mleGTFreq);
     float gfmle[3];
     gfmle[0] = mleGTFreq[0];
     gfmle[1] = mleGTFreq[1];
@@ -130,7 +132,7 @@ _processVCF(TConfig const& c) {
 	}
 	TAccuracyType sumPP = pp[0] + pp[1] + pp[2];
 	TAccuracyType sample_gq = (TAccuracyType) -10.0 * std::log10( (TAccuracyType) 1.0 - pp[bestGlIndex] / sumPP);
-	if (sample_gq > 100) sample_gq = 100;
+	if (sample_gq > 99) sample_gq = 99;
 	gqval[i] = boost::math::iround(sample_gq);
       } else {
 	gqval[i] = bcf_int32_missing;
@@ -168,6 +170,8 @@ int main(int argc, char **argv) {
   boost::program_options::options_description generic("Generic options");
   generic.add_options()
     ("help,?", "show help message")
+    ("epsilon,e", boost::program_options::value<double>(&c.epsilon)->default_value(1e-20), "epsilon error")
+    ("maxiter,m", boost::program_options::value<uint32_t>(&c.maxiter)->default_value(1000), "max. iterations for MLE")
     ("outfile,o", boost::program_options::value<boost::filesystem::path>(&c.outfile)->default_value("var.vcf.gz"), "VCF output file")
     ;
 
