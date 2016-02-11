@@ -41,6 +41,7 @@ Contact: Tobias Rausch (rausch@embl.de)
 #include <htslib/vcf.h>
 
 #include "arfer.h"
+#include "gq.h"
 
 using namespace vcfaid;
 
@@ -67,10 +68,14 @@ _processVCF(TConfig const& c) {
   // Open output file
   htsFile *fp = hts_open(c.outfile.string().c_str(), "wg");
   bcf_hdr_t *hdr_out = bcf_hdr_dup(hdr);
+  bcf_hdr_remove(hdr_out, BCF_HL_INFO, "AFmle");
+  bcf_hdr_remove(hdr_out, BCF_HL_INFO, "ACmle");
+  bcf_hdr_remove(hdr_out, BCF_HL_INFO, "GFmle");
+  bcf_hdr_remove(hdr_out, BCF_HL_FMT, "GQ");
   bcf_hdr_append(hdr_out, "##INFO=<ID=AFmle,Number=1,Type=Float,Description=\"Allele frequency estimated from GLs.\">");
   bcf_hdr_append(hdr_out, "##INFO=<ID=ACmle,Number=1,Type=Integer,Description=\"Allele count estimated from GLs.\">");
   bcf_hdr_append(hdr_out, "##INFO=<ID=GFmle,Number=G,Type=Float,Description=\"Genotype frequencies estimated from GLs.\">");
-  bcf_hdr_append(hdr_out, "##FORMAT=<ID=GQ,Number=1,Type=Integer,Description=\"Genotype Quality\">");
+  bcf_hdr_append(hdr_out, "##FORMAT=<ID=GQ,Number=1,Type=Float,Description=\"Genotype Quality\">");
   bcf_hdr_write(fp, hdr_out);
 
   bcf1_t* rec = bcf_init();
@@ -103,8 +108,10 @@ _processVCF(TConfig const& c) {
     hweAF[1] = 0.5;
     _estBiallelicAF(c, glVector, hweAF);
     float afest = hweAF[1];
+    _remove_info_tag(hdr_out, rec, "AFmle");
     bcf_update_info_float(hdr_out, rec, "AFmle", &afest, 1);
     int32_t acest = boost::math::iround(hweAF[1] * (ac[0] + ac[1]));
+    _remove_info_tag(hdr_out, rec, "ACmle");
     bcf_update_info_int32(hdr_out, rec, "ACmle", &acest, 1);
     TAccuracyType mleGTFreq[3];
     mleGTFreq[0] = 0;
@@ -115,9 +122,10 @@ _processVCF(TConfig const& c) {
     gfmle[0] = mleGTFreq[0];
     gfmle[1] = mleGTFreq[1];
     gfmle[2] = mleGTFreq[2];
+    _remove_info_tag(hdr_out, rec, "GFmle");
     bcf_update_info_float(hdr_out, rec, "GFmle", &gfmle, 3);
 
-    int32_t *gqval = (int*) malloc(bcf_hdr_nsamples(hdr) * sizeof(int));
+    float* gqval = (float*) malloc(bcf_hdr_nsamples(hdr) * sizeof(float));
     for (int i = 0; i < bcf_hdr_nsamples(hdr); ++i) {
       if ((bcf_gt_allele(gt[i*2]) != -1) && (bcf_gt_allele(gt[i*2 + 1]) != -1)) {
 	TAccuracyType pp[3];
@@ -133,12 +141,13 @@ _processVCF(TConfig const& c) {
 	TAccuracyType sumPP = pp[0] + pp[1] + pp[2];
 	TAccuracyType sample_gq = (TAccuracyType) -10.0 * std::log10( (TAccuracyType) 1.0 - pp[bestGlIndex] / sumPP);
 	if (sample_gq > 99) sample_gq = 99;
-	gqval[i] = boost::math::iround(sample_gq);
+	gqval[i] = ((float) boost::math::iround(sample_gq * 10)) / ((float) 10.0);
       } else {
-	gqval[i] = bcf_int32_missing;
+	bcf_float_set_missing(gqval[i]);
       }
     }
-    bcf_update_format_int32(hdr_out, rec, "GQ", gqval, bcf_hdr_nsamples(hdr));
+    _remove_format_tag(hdr_out, rec, "GQ");
+    bcf_update_format_float(hdr_out, rec, "GQ", gqval, bcf_hdr_nsamples(hdr));
     bcf_write1(fp, hdr_out, rec);
 
     // Clean-up
