@@ -68,13 +68,9 @@ _processVCF(TConfig const& c) {
   bcf_hdr_append(hdr_out, "##INFO=<ID=AFmle,Number=1,Type=Float,Description=\"Allele frequency estimated from GLs.\">");
   bcf_hdr_append(hdr_out, "##INFO=<ID=ACmle,Number=1,Type=Integer,Description=\"Allele count estimated from GLs.\">");
   bcf_hdr_append(hdr_out, "##INFO=<ID=GFmle,Number=G,Type=Float,Description=\"Genotype frequencies estimated from GLs.\">");
+  bcf_hdr_append(hdr_out, "##FORMAT=<ID=GQ,Number=1,Type=Integer,Description=\"Genotype Quality\">");
   bcf_hdr_write(fp, hdr_out);
 
-
-  int ngl = 0;
-  float* gl = NULL;
-  int ngt = 0;
-  int32_t* gt = NULL;
   bcf1_t* rec = bcf_init();
   while (bcf_read(ifile, hdr, rec) == 0) {
     bcf_unpack(rec, BCF_UN_ALL);
@@ -82,6 +78,10 @@ _processVCF(TConfig const& c) {
     typedef std::vector<TAccuracyType> TGLs;
     typedef std::vector<TGLs> TGlVector;
     TGlVector glVector;
+    int ngl = 0;
+    float* gl = NULL;
+    int ngt = 0;
+    int32_t* gt = NULL;
     bcf_get_format_float(hdr, rec, "GL", &gl, &ngl);
     bcf_get_format_int32(hdr, rec, "GT", &gt, &ngt);
     uint32_t ac[2];
@@ -114,11 +114,36 @@ _processVCF(TConfig const& c) {
     gfmle[1] = mleGTFreq[1];
     gfmle[2] = mleGTFreq[2];
     bcf_update_info_float(hdr_out, rec, "GFmle", &gfmle, 3);
+
+    int32_t *gqval = (int*) malloc(bcf_hdr_nsamples(hdr) * sizeof(int));
+    for (int i = 0; i < bcf_hdr_nsamples(hdr); ++i) {
+      if ((bcf_gt_allele(gt[i*2]) != -1) && (bcf_gt_allele(gt[i*2 + 1]) != -1)) {
+	TAccuracyType pp[3];
+	float bestGl = gl[i * 3];
+	int bestGlIndex = 0;
+	for(int k = 0; k<3; k++) {
+	  pp[k] = mleGTFreq[k] * std::pow((TAccuracyType) 10.0, (TAccuracyType) gl[i * 3 + k]);
+	  if (gl[i * 3 + k] > bestGl) {
+	    bestGl = gl[i * 3 + k];
+	    bestGlIndex = k;
+	  }
+	}
+	TAccuracyType sumPP = pp[0] + pp[1] + pp[2];
+	TAccuracyType sample_gq = ((TAccuracyType) -10.0 * std::log10( (TAccuracyType) 1.0 - pp[bestGlIndex])) / sumPP;
+	gqval[i] = boost::math::iround(sample_gq);
+      } else {
+	gqval[i] = bcf_int32_missing;
+      }
+    }
+    bcf_update_format_int32(hdr, rec, "GQ", gqval, bcf_hdr_nsamples(hdr));
     bcf_write1(fp, hdr_out, rec);
+
+    // Clean-up
+    free(gqval);
+    free(gl);
+    free(gt);
   }
   bcf_destroy(rec);
-  free(gl);
-  free(gt);
 
   // Close output VCF
   bcf_hdr_destroy(hdr_out);
