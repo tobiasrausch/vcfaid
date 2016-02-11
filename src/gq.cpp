@@ -129,7 +129,8 @@ _processVCF(TConfig const& c) {
 	  }
 	}
 	TAccuracyType sumPP = pp[0] + pp[1] + pp[2];
-	TAccuracyType sample_gq = ((TAccuracyType) -10.0 * std::log10( (TAccuracyType) 1.0 - pp[bestGlIndex])) / sumPP;
+	TAccuracyType sample_gq = (TAccuracyType) -10.0 * std::log10( (TAccuracyType) 1.0 - pp[bestGlIndex] / sumPP);
+	if (sample_gq > 100) sample_gq = 100;
 	gqval[i] = boost::math::iround(sample_gq);
       } else {
 	gqval[i] = bcf_int32_missing;
