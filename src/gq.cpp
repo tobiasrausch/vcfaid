@@ -135,7 +135,7 @@ _processVCF(TConfig const& c) {
 	gqval[i] = bcf_int32_missing;
       }
     }
-    bcf_update_format_int32(hdr, rec, "GQ", gqval, bcf_hdr_nsamples(hdr));
+    bcf_update_format_int32(hdr_out, rec, "GQ", gqval, bcf_hdr_nsamples(hdr));
     bcf_write1(fp, hdr_out, rec);
 
     // Clean-up
