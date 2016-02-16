@@ -40,3 +40,7 @@ Running gq
 
 `./src/gq -v output.vcf.gz input.vcf.gz`
 
+
+Credits
+-------
+VCFaid takes quite a bit of actual code fragments from [arfer](https://github.com/ekg/arfer).
