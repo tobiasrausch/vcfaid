@@ -38,7 +38,7 @@ Build vcfaid:
 Running gq
 ----------
 
-`./src/gq -v output.vcf.gz input.vcf.gz`
+`./src/gq -g 30 -v output.vcf.gz input.vcf.gz`
 
 
 Credits
