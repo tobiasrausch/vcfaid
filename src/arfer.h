@@ -107,6 +107,25 @@ namespace vcfaid
     }
   }
 
+
+  template<typename TGlVector, typename TValue>
+  inline void
+  _estBiallelicFIC(TGlVector const& glVector, TValue const (&hweAF)[2], TValue& F) {
+    if (!glVector.empty()) {
+      TValue hweGT[3];
+      hweGT[0] = hweAF[0] * hweAF[0];
+      hweGT[1] = 2 * hweAF[0] * hweAF[1];
+      hweGT[2] = hweAF[1] * hweAF[1];
+      TValue sumGLHet = 0;
+      TValue denominator = 0;
+      for(typename TGlVector::const_iterator itG = glVector.begin(); itG !=glVector.end();++itG) {
+	sumGLHet += ((itG->at(1) * hweGT[1]) / (itG->at(0) * hweGT[0] + itG->at(1) * hweGT[1] + itG->at(2) * hweGT[2]));
+	denominator += hweGT[1];
+      }
+      F = 1 - sumGLHet/denominator;
+    }
+  }
+
 }
 
 #endif

@@ -47,6 +47,7 @@ using namespace vcfaid;
 
 struct Config {
   uint32_t maxiter;
+  float gqthreshold;
   double epsilon;
   boost::filesystem::path outfile;
   boost::filesystem::path vcffile;
@@ -71,10 +72,12 @@ _processVCF(TConfig const& c) {
   bcf_hdr_remove(hdr_out, BCF_HL_INFO, "AFmle");
   bcf_hdr_remove(hdr_out, BCF_HL_INFO, "ACmle");
   bcf_hdr_remove(hdr_out, BCF_HL_INFO, "GFmle");
+  bcf_hdr_remove(hdr_out, BCF_HL_INFO, "FIC");
   bcf_hdr_remove(hdr_out, BCF_HL_FMT, "GQ");
   bcf_hdr_append(hdr_out, "##INFO=<ID=AFmle,Number=1,Type=Float,Description=\"Allele frequency estimated from GLs.\">");
   bcf_hdr_append(hdr_out, "##INFO=<ID=ACmle,Number=1,Type=Integer,Description=\"Allele count estimated from GLs.\">");
   bcf_hdr_append(hdr_out, "##INFO=<ID=GFmle,Number=G,Type=Float,Description=\"Genotype frequencies estimated from GLs.\">");
+  bcf_hdr_append(hdr_out, "##INFO=<ID=FIC,Number=1,Type=Float,Description=\"Inbreeding coefficient estimated from GLs.\">");
   bcf_hdr_append(hdr_out, "##FORMAT=<ID=GQ,Number=1,Type=Float,Description=\"Genotype Quality\">");
   bcf_hdr_write(fp, hdr_out);
 
@@ -124,6 +127,12 @@ _processVCF(TConfig const& c) {
     gfmle[2] = mleGTFreq[2];
     _remove_info_tag(hdr_out, rec, "GFmle");
     bcf_update_info_float(hdr_out, rec, "GFmle", &gfmle, 3);
+    TAccuracyType F = 0;
+    _estBiallelicFIC(glVector, hweAF, F);
+    float fic = F;
+    _remove_info_tag(hdr_out, rec, "FIC");
+    bcf_update_info_float(hdr_out, rec, "FIC", &fic, 1);
+
 
     float* gqval = (float*) malloc(bcf_hdr_nsamples(hdr) * sizeof(float));
     for (int i = 0; i < bcf_hdr_nsamples(hdr); ++i) {
@@ -142,12 +151,21 @@ _processVCF(TConfig const& c) {
 	TAccuracyType sample_gq = (TAccuracyType) -10.0 * std::log10( (TAccuracyType) 1.0 - pp[bestGlIndex] / sumPP);
 	if (sample_gq > 99) sample_gq = 99;
 	gqval[i] = ((float) boost::math::iround(sample_gq * 10)) / ((float) 10.0);
+	
+	// Unset GTs
+	if (gqval[i] < c.gqthreshold) {
+	  gt[i*2] = bcf_gt_missing;
+	  gt[i*2 + 1] = bcf_gt_missing;
+	}
       } else {
 	bcf_float_set_missing(gqval[i]);
       }
     }
+    bcf_update_genotypes(hdr_out, rec, gt, bcf_hdr_nsamples(hdr) * 2);
     _remove_format_tag(hdr_out, rec, "GQ");
     bcf_update_format_float(hdr_out, rec, "GQ", gqval, bcf_hdr_nsamples(hdr));
+
+    // Write record
     bcf_write1(fp, hdr_out, rec);
 
     // Clean-up
@@ -181,6 +199,7 @@ int main(int argc, char **argv) {
     ("help,?", "show help message")
     ("epsilon,e", boost::program_options::value<double>(&c.epsilon)->default_value(1e-20), "epsilon error")
     ("maxiter,m", boost::program_options::value<uint32_t>(&c.maxiter)->default_value(1000), "max. iterations for MLE")
+    ("gqthreshold,g", boost::program_options::value<float>(&c.gqthreshold)->default_value(0), "GQs below will be GT=.")
     ("outfile,o", boost::program_options::value<boost::filesystem::path>(&c.outfile)->default_value("var.vcf.gz"), "VCF output file")
     ;
 
