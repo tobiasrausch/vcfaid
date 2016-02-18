@@ -199,7 +199,7 @@ int main(int argc, char **argv) {
     ("help,?", "show help message")
     ("epsilon,e", boost::program_options::value<double>(&c.epsilon)->default_value(1e-20), "epsilon error")
     ("maxiter,m", boost::program_options::value<uint32_t>(&c.maxiter)->default_value(1000), "max. iterations for MLE")
-    ("gqthreshold,g", boost::program_options::value<float>(&c.gqthreshold)->default_value(0), "GQs below will be GT=.")
+    ("gqthreshold,g", boost::program_options::value<float>(&c.gqthreshold)->default_value(0), "GQs below will be GT=./.")
     ("outfile,o", boost::program_options::value<boost::filesystem::path>(&c.outfile)->default_value("var.vcf.gz"), "VCF output file")
     ;
 
