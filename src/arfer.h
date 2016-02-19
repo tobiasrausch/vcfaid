@@ -126,6 +126,42 @@ namespace vcfaid
     }
   }
 
+
+  template<typename TGlVector, typename TValue>
+  inline void
+  _estBiallelicRSQ(TGlVector const& glVector, TValue const (&hweAF)[2], TValue& rsq) {
+    // observed/expected dosage variance calculated as var(dosage)/(2*p*q)
+    // MaCH-Rsq threshold is >0.3
+    if (!glVector.empty()) {
+      TValue hweGT[3];
+      hweGT[0] = hweAF[0] * hweAF[0];
+      hweGT[1] = 2 * hweAF[0] * hweAF[1];  // Expected variance explained by a SNP
+      hweGT[2] = hweAF[1] * hweAF[1];
+      TValue post[3];
+      TValue p = 0;
+      TValue sumD = 0;
+      TValue sumD2 = 0;
+      TValue numSample = glVector.size();
+      for(typename TGlVector::const_iterator itG = glVector.begin(); itG !=glVector.end();++itG) {
+	post[0] = itG->at(0) * hweGT[0];
+	post[1] = itG->at(1) * hweGT[1];
+	post[2] = itG->at(2) * hweGT[2];
+	p = post[0] + post[1] + post[2];
+	post[0] /= p;
+	post[1] /= p;
+	post[2] /= p;
+	sumD += (post[1] + 2 * post[0]);  // genetic variance 2 * post[0] + 1 * post[1] + 0 * post[2]
+	sumD2 += (post[1] + 2 * post[0]) * (post[1] + 2 * post[0]);
+      }
+      TValue meanD = sumD/numSample;
+      sumD2 = (sumD2 -numSample * meanD * meanD);
+      if (sumD2 < 0) sumD2 = 0;
+      sumD2 /= (numSample - 1);
+      rsq = sumD2 / hweGT[1];
+    }
+  }
+
+
 }
 
 #endif

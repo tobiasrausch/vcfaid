@@ -73,11 +73,13 @@ _processVCF(TConfig const& c) {
   bcf_hdr_remove(hdr_out, BCF_HL_INFO, "ACmle");
   bcf_hdr_remove(hdr_out, BCF_HL_INFO, "GFmle");
   bcf_hdr_remove(hdr_out, BCF_HL_INFO, "FIC");
+  bcf_hdr_remove(hdr_out, BCF_HL_INFO, "RSQ");
   bcf_hdr_remove(hdr_out, BCF_HL_FMT, "GQ");
   bcf_hdr_append(hdr_out, "##INFO=<ID=AFmle,Number=1,Type=Float,Description=\"Allele frequency estimated from GLs.\">");
   bcf_hdr_append(hdr_out, "##INFO=<ID=ACmle,Number=1,Type=Integer,Description=\"Allele count estimated from GLs.\">");
   bcf_hdr_append(hdr_out, "##INFO=<ID=GFmle,Number=G,Type=Float,Description=\"Genotype frequencies estimated from GLs.\">");
   bcf_hdr_append(hdr_out, "##INFO=<ID=FIC,Number=1,Type=Float,Description=\"Inbreeding coefficient estimated from GLs.\">");
+  bcf_hdr_append(hdr_out, "##INFO=<ID=RSQ,Number=1,Type=Float,Description=\"Ratio of observed vs. expected variance.\">");
   bcf_hdr_append(hdr_out, "##FORMAT=<ID=GQ,Number=1,Type=Float,Description=\"Genotype Quality\">");
   bcf_hdr_write(fp, hdr_out);
 
@@ -132,7 +134,11 @@ _processVCF(TConfig const& c) {
     float fic = F;
     _remove_info_tag(hdr_out, rec, "FIC");
     bcf_update_info_float(hdr_out, rec, "FIC", &fic, 1);
-
+    TAccuracyType rsq = 0;
+    _estBiallelicRSQ(glVector, hweAF, rsq);
+    float rsqfloat = rsq;
+    _remove_info_tag(hdr_out, rec, "RSQ");
+    bcf_update_info_float(hdr_out, rec, "RSQ", &rsqfloat, 1);
 
     float* gqval = (float*) malloc(bcf_hdr_nsamples(hdr) * sizeof(float));
     for (int i = 0; i < bcf_hdr_nsamples(hdr); ++i) {
