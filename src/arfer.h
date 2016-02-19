@@ -28,6 +28,8 @@ THE SOFTWARE.
 #ifndef ARFER_H
 #define ARFER_H
 
+#include <boost/math/distributions/chi_squared.hpp>
+
 namespace vcfaid
 {
 
@@ -161,6 +163,27 @@ namespace vcfaid
     }
   }
 
+  template<typename TGlVector, typename TValue>
+  inline void
+  _estBiallelicHWE_LRT(TGlVector const& glVector, TValue const (&hweAF)[2], TValue const (&mleGTFreq)[3], TValue& pvalue) {
+    if (!glVector.empty()) {
+      TValue hweGT[3];
+      hweGT[0] = hweAF[0] * hweAF[0];
+      hweGT[1] = 2 * hweAF[0] * hweAF[1];
+      hweGT[2] = hweAF[1] * hweAF[1];
+      TValue null = 0;
+      TValue alt = 0;
+      for(typename TGlVector::const_iterator itG = glVector.begin(); itG !=glVector.end();++itG) {
+	null += std::log(itG->at(0) * hweGT[0] + itG->at(1) * hweGT[1] + itG->at(2) * hweGT[2]);
+	alt += std::log(itG->at(0) * mleGTFreq[0] + itG->at(1) * mleGTFreq[1] + itG->at(2) * mleGTFreq[2]);
+      }
+      TValue lrts = -2 * (null - alt);
+      if (lrts < 0) lrts = 0;
+      boost::math::chi_squared chisqDist(1);
+      pvalue = boost::math::cdf(complement(chisqDist, lrts));  // Probability that the variable takes a value > lrts
+    }
+  }
+      
 
 }
 
