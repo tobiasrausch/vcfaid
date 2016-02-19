@@ -29,9 +29,40 @@ THE SOFTWARE.
 #define ARFER_H
 
 #include <boost/math/distributions/chi_squared.hpp>
+#include <boost/math/distributions/hypergeometric.hpp>
 
 namespace vcfaid
 {
+
+  template<typename TPrecision>
+  inline TPrecision
+  phred2Prob(uint32_t n, std::vector<TPrecision>&  phred2prob) {
+    if (n >= phred2prob.size()) {
+      if (phred2prob.empty()) phred2prob.push_back(1);
+      for(uint32_t i = phred2prob.size(); i<=n; ++i) phred2prob.push_back(std::pow(TPrecision(10), -(TPrecision(i)/TPrecision(10))));
+    }
+    return phred2prob[n];
+  }
+
+
+  // as fisher.test(matrix(c(a,b,c,d), ncol=2)) in R Statistics
+  template<typename TPrecision>
+  inline void
+  fisher_test(uint32_t a, uint32_t b, uint32_t c, uint32_t d, TPrecision& pval) {
+    uint32_t N = a + b + c + d;
+    uint32_t r = a + c;
+    uint32_t s = c + d;
+    uint32_t max_for_k = std::min(r, s);
+    uint32_t min_for_k = (uint32_t) std::max(0, int(r + s - N));
+    boost::math::hypergeometric_distribution<> hgd(r, s, N);
+    TPrecision cutoff = pdf(hgd, c);
+    pval = 0.0;
+    for(int k = min_for_k; k <= max_for_k; ++k) {
+      TPrecision p = pdf(hgd, k);
+      if (p <= cutoff) pval += p;
+    }
+  }
+
 
   template<typename TConfig, typename TGlVector, typename TValue>
   inline void
