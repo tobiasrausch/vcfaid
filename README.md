@@ -41,6 +41,13 @@ Running gq
 `./src/gq -g 30 -v output.vcf.gz input.vcf.gz`
 
 
+Running subset
+--------------
+
+Subset a VCF file to a list of sites and add INFO:SCORE for every selected site. Tab-delimited input bed file format (no header line): id score
+
+`./src/subset -b selected.bed -o selected.vcf.gz raw.vcf.gz`
+
 Credits
 -------
 VCFaid takes quite a bit of actual code fragments from [arfer](https://github.com/ekg/arfer).
