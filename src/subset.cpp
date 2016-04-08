@@ -80,14 +80,10 @@ _processVCF(TConfig const& c, TScores const& scores) {
 
   // Open VCF file
   htsFile* ifile = bcf_open(c.vcffile.string().c_str(), "r");
-  if (ifile == NULL) {
-    std::cerr << "VCF file is missing " << c.vcffile.string() << std::endl;
-    return 1;
-  }
   bcf_hdr_t* hdr = bcf_hdr_read(ifile);
 
   // Open output file
-  htsFile *fp = hts_open(c.outfile.string().c_str(), "wg");
+  htsFile *fp = hts_open(c.outfile.string().c_str(), "wb");
   bcf_hdr_t *hdr_out = bcf_hdr_dup(hdr);
   bcf_hdr_remove(hdr_out, BCF_HL_INFO, "SCORE");
   bcf_hdr_append(hdr_out, "##INFO=<ID=SCORE,Number=1,Type=Float,Description=\"Structural Variant Score.\">");
@@ -111,6 +107,9 @@ _processVCF(TConfig const& c, TScores const& scores) {
   // Close output VCF
   bcf_hdr_destroy(hdr_out);
   hts_close(fp);
+  
+  // Build index
+  bcf_index_build(c.outfile.string().c_str(), 14);
 
   // Close VCF
   bcf_hdr_destroy(hdr);
@@ -131,12 +130,12 @@ int main(int argc, char **argv) {
   generic.add_options()
     ("help,?", "show help message")
     ("bed,b", boost::program_options::value<boost::filesystem::path>(&c.bedfile), "bedfile of id & score of variants to keep")
-    ("outfile,o", boost::program_options::value<boost::filesystem::path>(&c.outfile)->default_value("var.vcf.gz"), "VCF output file")
+    ("outfile,o", boost::program_options::value<boost::filesystem::path>(&c.outfile)->default_value("var.bcf"), "BCF output file")
     ;
 
   boost::program_options::options_description hidden("Hidden options");
   hidden.add_options()
-    ("input-file", boost::program_options::value<boost::filesystem::path>(&c.vcffile), "input VCF file")
+    ("input-file", boost::program_options::value<boost::filesystem::path>(&c.vcffile), "input VCF/BCF file")
     ;
 
   boost::program_options::positional_options_description pos_args;
@@ -159,7 +158,7 @@ int main(int argc, char **argv) {
   
   // Check VCF file
   if (!(boost::filesystem::exists(c.vcffile) && boost::filesystem::is_regular_file(c.vcffile) && boost::filesystem::file_size(c.vcffile))) {
-    std::cerr << "Input VCF file is missing " << c.vcffile.string() << std::endl;
+    std::cerr << "Input VCF/BCF file is missing " << c.vcffile.string() << std::endl;
     return 1;
   }
 
