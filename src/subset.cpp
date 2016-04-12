@@ -51,12 +51,13 @@ struct Config {
 };
 
 template<typename TConfig, typename TScores>
-inline void
+inline bool
 _parseScores(TConfig const& c, TScores& scores)
 {
   typedef typename TScores::mapped_type TMappedType;
   typedef typename TScores::key_type TKeyType;
   std::ifstream bedFile(c.bedfile.string().c_str(), std::ifstream::in);
+  bool scoresPresent = true;
   if (bedFile.is_open()) {
     while (bedFile.good()) {
       std::string line;
@@ -67,16 +68,22 @@ _parseScores(TConfig const& c, TScores& scores)
       Tokenizer::iterator tokIter = tokens.begin();
       if (tokIter!=tokens.end()) {
 	TKeyType id = *tokIter++;
-	TMappedType score = boost::lexical_cast<TMappedType>(*tokIter++);
-	scores[id] = score;
+	if (tokIter!=tokens.end()) {
+	  TMappedType score = boost::lexical_cast<TMappedType>(*tokIter++);
+	  scores[id] = score;
+	} else {
+	  scoresPresent = false;
+	  scores[id] = 0;
+	}
       }
     }
   }
+  return scoresPresent;
 }
 
 template<typename TConfig, typename TScores>
 inline int32_t 
-_processVCF(TConfig const& c, TScores const& scores) {
+_processVCF(TConfig const& c, TScores const& scores, bool hasScores) {
 
   // Open VCF file
   htsFile* ifile = bcf_open(c.vcffile.string().c_str(), "r");
@@ -85,8 +92,10 @@ _processVCF(TConfig const& c, TScores const& scores) {
   // Open output file
   htsFile *fp = hts_open(c.outfile.string().c_str(), "wb");
   bcf_hdr_t *hdr_out = bcf_hdr_dup(hdr);
-  bcf_hdr_remove(hdr_out, BCF_HL_INFO, "SCORE");
-  bcf_hdr_append(hdr_out, "##INFO=<ID=SCORE,Number=1,Type=Float,Description=\"Structural Variant Score.\">");
+  if (hasScores) { 
+    bcf_hdr_remove(hdr_out, BCF_HL_INFO, "SCORE");
+    bcf_hdr_append(hdr_out, "##INFO=<ID=SCORE,Number=1,Type=Float,Description=\"Structural Variant Score.\">");
+  }
   bcf_hdr_write(fp, hdr_out);
 
   bcf1_t* rec = bcf_init();
@@ -94,9 +103,11 @@ _processVCF(TConfig const& c, TScores const& scores) {
     bcf_unpack(rec, BCF_UN_INFO);
     std::string svid(rec->d.id);
     if (scores.find(svid) != scores.end()) {
-      float score = scores.at(svid);
-      _remove_info_tag(hdr_out, rec, "SCORE");
-      bcf_update_info_float(hdr_out, rec, "SCORE", &score, 1);
+      if (hasScores) {
+	float score = scores.at(svid);
+	_remove_info_tag(hdr_out, rec, "SCORE");
+	bcf_update_info_float(hdr_out, rec, "SCORE", &score, 1);
+      }
 
       // Write record
       bcf_write1(fp, hdr_out, rec);
@@ -177,10 +188,10 @@ int main(int argc, char **argv) {
   // Parse selected Ids and Scores
   typedef std::map<std::string, double> TScores;
   TScores scores;
-  _parseScores(c, scores);
+  bool hasScores = _parseScores(c, scores);
 
   // Filter Ids and add scores
-  int r=_processVCF(c, scores);
+  int r=_processVCF(c, scores, hasScores);
 
   // End
   now = boost::posix_time::second_clock::local_time();
