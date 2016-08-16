@@ -2,6 +2,7 @@
 .boost
 src/gq
 src/subset
+src/replicate
 
 # Compiled Object files
 *.slo
