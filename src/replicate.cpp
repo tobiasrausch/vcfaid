@@ -141,7 +141,7 @@ _checkReplicates(TConfig const& c) {
       }
       std::string varId = rec->d.id;
       if ((bestBAF >= c.minBAF) && (bestSupport >= c.minReplicateSupport)) ofile << varId << "\t1" << std::endl;
-      else ofile << varId << "\t0" << std::endl;
+      else if ((bestBAF < c.minBAF) || ((bestBAF >= c.minBAF) && (bestSupport == 0))) ofile << varId << "\t0" << std::endl;
     }
 
 
