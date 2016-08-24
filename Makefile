@@ -32,7 +32,7 @@ HTSLIBSOURCES = $(wildcard src/htslib/*.c) $(wildcard src/htslib/*.h)
 SVSOURCES = $(wildcard src/*.h) $(wildcard src/*.cpp)
 
 # Targets
-TARGETS = .htslib .boost src/gq src/subset src/replicate
+TARGETS = .htslib .boost src/gq src/subset
 
 all:   	$(TARGETS)
 
@@ -46,9 +46,6 @@ src/gq: .htslib .boost $(SVSOURCES)
 	$(CXX) $(CXXFLAGS) $@.cpp -o $@ $(LDFLAGS)
 
 src/subset: .htslib .boost $(SVSOURCES)
-	$(CXX) $(CXXFLAGS) $@.cpp -o $@ $(LDFLAGS)
-
-src/replicate: .htslib .boost $(SVSOURCES)
 	$(CXX) $(CXXFLAGS) $@.cpp -o $@ $(LDFLAGS)
 
 clean:
