@@ -84,103 +84,105 @@ _processVCF(TConfig const& c) {
   bcf1_t* rec = bcf_init();
   while (bcf_read(ifile, hdr, rec) == 0) {
     bcf_unpack(rec, BCF_UN_ALL);
-    typedef double TAccuracyType;
-    typedef std::vector<TAccuracyType> TGLs;
-    typedef std::vector<TGLs> TGlVector;
-    TGlVector glVector;
-    int ngl = 0;
-    float* gl = NULL;
-    int ngt = 0;
-    int32_t* gt = NULL;
-    bcf_get_format_float(hdr, rec, "GL", &gl, &ngl);
-    bcf_get_format_int32(hdr, rec, "GT", &gt, &ngt);
-    uint32_t ac[2];
-    ac[0] = 0;
-    ac[1] = 0;
-    for (int i = 0; i < bcf_hdr_nsamples(hdr); ++i) {
-      if ((bcf_gt_allele(gt[i*2]) != -1) && (bcf_gt_allele(gt[i*2 + 1]) != -1)) {
-        ++ac[bcf_gt_allele(gt[i*2])];
-        ++ac[bcf_gt_allele(gt[i*2 + 1])];
-	TGLs glTriple(3);
-	for(int k = 0; k<3; k++) glTriple[k] = std::pow((TAccuracyType) 10.0, (TAccuracyType) gl[i * 3 + k]);
-	glVector.push_back(glTriple);
+    if (rec->n_allele == 2) {
+      typedef double TAccuracyType;
+      typedef std::vector<TAccuracyType> TGLs;
+      typedef std::vector<TGLs> TGlVector;
+      TGlVector glVector;
+      int ngl = 0;
+      float* gl = NULL;
+      int ngt = 0;
+      int32_t* gt = NULL;
+      bcf_get_format_float(hdr, rec, "GL", &gl, &ngl);
+      bcf_get_format_int32(hdr, rec, "GT", &gt, &ngt);
+      uint32_t ac[2];
+      ac[0] = 0;
+      ac[1] = 0;
+      for (int i = 0; i < bcf_hdr_nsamples(hdr); ++i) {
+	if ((bcf_gt_allele(gt[i*2]) != -1) && (bcf_gt_allele(gt[i*2 + 1]) != -1)) {
+	  ++ac[bcf_gt_allele(gt[i*2])];
+	  ++ac[bcf_gt_allele(gt[i*2 + 1])];
+	  TGLs glTriple(3);
+	  for(int k = 0; k<3; k++) glTriple[k] = std::pow((TAccuracyType) 10.0, (TAccuracyType) gl[i * 3 + k]);
+	  glVector.push_back(glTriple);
+	}
       }
-    }
-    TAccuracyType hweAF[2];
-    hweAF[0] = 0.5;
-    hweAF[1] = 0.5;
-    _estBiallelicAF(c, glVector, hweAF);
-    float afest = hweAF[1];
-    _remove_info_tag(hdr_out, rec, "AFmle");
-    bcf_update_info_float(hdr_out, rec, "AFmle", &afest, 1);
-    int32_t acest = boost::math::iround(hweAF[1] * (ac[0] + ac[1]));
-    _remove_info_tag(hdr_out, rec, "ACmle");
-    bcf_update_info_int32(hdr_out, rec, "ACmle", &acest, 1);
-    TAccuracyType mleGTFreq[3];
-    mleGTFreq[0] = 0;
-    mleGTFreq[1] = 0;
-    mleGTFreq[2] = 0;
-    _estBiallelicGTFreq(c, glVector, mleGTFreq);
-    float gfmle[3];
-    gfmle[0] = mleGTFreq[0];
-    gfmle[1] = mleGTFreq[1];
-    gfmle[2] = mleGTFreq[2];
-    _remove_info_tag(hdr_out, rec, "GFmle");
-    bcf_update_info_float(hdr_out, rec, "GFmle", &gfmle, 3);
-    TAccuracyType F = 0;
-    _estBiallelicFIC(glVector, hweAF, F);
-    float fic = F;
-    _remove_info_tag(hdr_out, rec, "FIC");
-    bcf_update_info_float(hdr_out, rec, "FIC", &fic, 1);
-    TAccuracyType rsq = 0;
-    _estBiallelicRSQ(glVector, hweAF, rsq);
-    float rsqfloat = rsq;
-    _remove_info_tag(hdr_out, rec, "RSQ");
-    bcf_update_info_float(hdr_out, rec, "RSQ", &rsqfloat, 1);
-    TAccuracyType pval = 0;
-    _estBiallelicHWE_LRT(glVector, hweAF, mleGTFreq, pval);
-    float hwepval = pval;
-    _remove_info_tag(hdr_out, rec, "HWEpval");
-    bcf_update_info_float(hdr_out, rec, "HWEpval", &hwepval, 1);
-
-    float* gqval = (float*) malloc(bcf_hdr_nsamples(hdr) * sizeof(float));
-    for (int i = 0; i < bcf_hdr_nsamples(hdr); ++i) {
-      if ((bcf_gt_allele(gt[i*2]) != -1) && (bcf_gt_allele(gt[i*2 + 1]) != -1)) {
-	TAccuracyType pp[3];
-	float bestGl = gl[i * 3];
-	int bestGlIndex = 0;
-	for(int k = 0; k<3; k++) {
-	  pp[k] = mleGTFreq[k] * std::pow((TAccuracyType) 10.0, (TAccuracyType) gl[i * 3 + k]);
-	  if (gl[i * 3 + k] > bestGl) {
-	    bestGl = gl[i * 3 + k];
-	    bestGlIndex = k;
+      TAccuracyType hweAF[2];
+      hweAF[0] = 0.5;
+      hweAF[1] = 0.5;
+      _estBiallelicAF(c, glVector, hweAF);
+      float afest = hweAF[1];
+      _remove_info_tag(hdr_out, rec, "AFmle");
+      bcf_update_info_float(hdr_out, rec, "AFmle", &afest, 1);
+      int32_t acest = boost::math::iround(hweAF[1] * (ac[0] + ac[1]));
+      _remove_info_tag(hdr_out, rec, "ACmle");
+      bcf_update_info_int32(hdr_out, rec, "ACmle", &acest, 1);
+      TAccuracyType mleGTFreq[3];
+      mleGTFreq[0] = 0;
+      mleGTFreq[1] = 0;
+      mleGTFreq[2] = 0;
+      _estBiallelicGTFreq(c, glVector, mleGTFreq);
+      float gfmle[3];
+      gfmle[0] = mleGTFreq[0];
+      gfmle[1] = mleGTFreq[1];
+      gfmle[2] = mleGTFreq[2];
+      _remove_info_tag(hdr_out, rec, "GFmle");
+      bcf_update_info_float(hdr_out, rec, "GFmle", &gfmle, 3);
+      TAccuracyType F = 0;
+      _estBiallelicFIC(glVector, hweAF, F);
+      float fic = F;
+      _remove_info_tag(hdr_out, rec, "FIC");
+      bcf_update_info_float(hdr_out, rec, "FIC", &fic, 1);
+      TAccuracyType rsq = 0;
+      _estBiallelicRSQ(glVector, hweAF, rsq);
+      float rsqfloat = rsq;
+      _remove_info_tag(hdr_out, rec, "RSQ");
+      bcf_update_info_float(hdr_out, rec, "RSQ", &rsqfloat, 1);
+      TAccuracyType pval = 0;
+      _estBiallelicHWE_LRT(glVector, hweAF, mleGTFreq, pval);
+      float hwepval = pval;
+      _remove_info_tag(hdr_out, rec, "HWEpval");
+      bcf_update_info_float(hdr_out, rec, "HWEpval", &hwepval, 1);
+      
+      float* gqval = (float*) malloc(bcf_hdr_nsamples(hdr) * sizeof(float));
+      for (int i = 0; i < bcf_hdr_nsamples(hdr); ++i) {
+	if ((bcf_gt_allele(gt[i*2]) != -1) && (bcf_gt_allele(gt[i*2 + 1]) != -1)) {
+	  TAccuracyType pp[3];
+	  float bestGl = gl[i * 3];
+	  int bestGlIndex = 0;
+	  for(int k = 0; k<3; k++) {
+	    pp[k] = mleGTFreq[k] * std::pow((TAccuracyType) 10.0, (TAccuracyType) gl[i * 3 + k]);
+	    if (gl[i * 3 + k] > bestGl) {
+	      bestGl = gl[i * 3 + k];
+	      bestGlIndex = k;
+	    }
 	  }
+	  TAccuracyType sumPP = pp[0] + pp[1] + pp[2];
+	  TAccuracyType sample_gq = (TAccuracyType) -10.0 * std::log10( (TAccuracyType) 1.0 - pp[bestGlIndex] / sumPP);
+	  if (sample_gq > 99) sample_gq = 99;
+	  gqval[i] = ((float) boost::math::iround(sample_gq * 10)) / ((float) 10.0);
+	  
+	  // Unset GTs
+	  if (gqval[i] < c.gqthreshold) {
+	    gt[i*2] = bcf_gt_missing;
+	    gt[i*2 + 1] = bcf_gt_missing;
+	  }
+	} else {
+	  bcf_float_set_missing(gqval[i]);
 	}
-	TAccuracyType sumPP = pp[0] + pp[1] + pp[2];
-	TAccuracyType sample_gq = (TAccuracyType) -10.0 * std::log10( (TAccuracyType) 1.0 - pp[bestGlIndex] / sumPP);
-	if (sample_gq > 99) sample_gq = 99;
-	gqval[i] = ((float) boost::math::iround(sample_gq * 10)) / ((float) 10.0);
-	
-	// Unset GTs
-	if (gqval[i] < c.gqthreshold) {
-	  gt[i*2] = bcf_gt_missing;
-	  gt[i*2 + 1] = bcf_gt_missing;
-	}
-      } else {
-	bcf_float_set_missing(gqval[i]);
       }
+      bcf_update_genotypes(hdr_out, rec, gt, bcf_hdr_nsamples(hdr) * 2);
+      _remove_format_tag(hdr_out, rec, "GQ");
+      bcf_update_format_float(hdr_out, rec, "GQ", gqval, bcf_hdr_nsamples(hdr));
+
+      // Write record
+      bcf_write1(fp, hdr_out, rec);
+      
+      // Clean-up
+      free(gqval);
+      free(gl);
+      free(gt);
     }
-    bcf_update_genotypes(hdr_out, rec, gt, bcf_hdr_nsamples(hdr) * 2);
-    _remove_format_tag(hdr_out, rec, "GQ");
-    bcf_update_format_float(hdr_out, rec, "GQ", gqval, bcf_hdr_nsamples(hdr));
-
-    // Write record
-    bcf_write1(fp, hdr_out, rec);
-
-    // Clean-up
-    free(gqval);
-    free(gl);
-    free(gt);
   }
   bcf_destroy(rec);
 
