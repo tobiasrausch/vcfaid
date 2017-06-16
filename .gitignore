@@ -2,6 +2,7 @@
 .boost
 src/gq
 src/subset
+src/gqToMissing
 
 # Compiled Object files
 *.slo
