@@ -3,19 +3,23 @@ STATIC ?= 0
 
 # Submodules
 PWD = $(shell pwd)
-SEQTK_ROOT ?= ${PWD}/src/htslib/
-BOOST_ROOT ?= ${PWD}/src/modular-boost/
+EBROOTHTSLIB ?= ${PWD}/src/htslib/
+
+# Install dir
+prefix = ${PWD}
+exec_prefix = $(prefix)
+bindir ?= $(exec_prefix)/bin
 
 # Flags
 CXX=g++
-CXXFLAGS += -isystem ${SEQTK_ROOT} -isystem ${BOOST_ROOT} -pedantic -W -Wall -Wno-unknown-pragmas -D__STDC_LIMIT_MACROS
-LDFLAGS += -L${SEQTK_ROOT} -L${BOOST_ROOT}/stage/lib -lboost_iostreams -lboost_filesystem -lboost_system -lboost_program_options -lboost_date_time
+CXXFLAGS += -isystem ${EBROOTHTSLIB} -pedantic -W -Wall -Wno-unknown-pragmas -D__STDC_LIMIT_MACROS -fno-strict-aliasing -fpermissive
+LDFLAGS += -L${EBROOTHTSLIB} -L${EBROOTHTSLIB}/lib -lboost_iostreams -lboost_filesystem -lboost_system -lboost_program_options -lboost_date_time
 
 # Additional flags for release/debug
 ifeq (${STATIC}, 1)
-	LDFLAGS += -static -static-libgcc -pthread -lhts -lz
+	LDFLAGS += -static -static-libgcc -pthread -lhts -lz -llzma -lbz2
 else
-	LDFLAGS += -lhts -lz -Wl,-rpath,${SEQTK_ROOT},-rpath,${BOOST_ROOT}/stage/lib
+	LDFLAGS += -lhts -lz -llzma -lbz2 -Wl,-rpath,${EBROOTHTSLIB}
 endif
 ifeq (${DEBUG}, 1)
 	CXXFLAGS += -g -O0 -fno-inline -DDEBUG
@@ -25,33 +29,35 @@ else ifeq (${DEBUG}, 2)
 else
 	CXXFLAGS += -O3 -fno-tree-vectorize -DNDEBUG
 endif
+ifeq (${EBROOTHTSLIB}, ${PWD}/src/htslib/)
+	SUBMODULES += .htslib
+endif
 
 # External sources
-BOOSTSOURCES = $(wildcard src/modular-boost/libs/iostreams/include/boost/iostreams/*.hpp)
 HTSLIBSOURCES = $(wildcard src/htslib/*.c) $(wildcard src/htslib/*.h)
 SVSOURCES = $(wildcard src/*.h) $(wildcard src/*.cpp)
 
 # Targets
-TARGETS = .htslib .boost src/gq src/subset src/gqToMissing
+BUILT_PROGRAMS = src/gq
+TARGETS = ${SUBMODULES} ${BUILT_PROGRAMS}
 
 all:   	$(TARGETS)
 
 .htslib: $(HTSLIBSOURCES)
-	cd src/htslib && make && make lib-static && cd ../../ && touch .htslib
+	if [ -r src/htslib/Makefile ]; then cd src/htslib && autoheader && autoconf && ./configure --disable-s3 --disable-gcs --disable-libcurl --disable-plugins && $(MAKE) && $(MAKE) lib-static && cd ../../ && touch .htslib; fi
 
-.boost: $(BOOSTSOURCES)
-	cd src/modular-boost && ./bootstrap.sh --prefix=${PWD}/src/modular-boost --without-icu --with-libraries=iostreams,filesystem,system,program_options,date_time && ./b2 && ./b2 headers && cd ../../ && touch .boost
-
-src/gq: .htslib .boost $(SVSOURCES)
+src/gq: ${SUBMODULES} $(SVSOURCES)
 	$(CXX) $(CXXFLAGS) $@.cpp -o $@ $(LDFLAGS)
 
-src/gqToMissing: .htslib .boost $(SVSOURCES)
-	$(CXX) $(CXXFLAGS) $@.cpp -o $@ $(LDFLAGS)
-
-src/subset: .htslib .boost $(SVSOURCES)
-	$(CXX) $(CXXFLAGS) $@.cpp -o $@ $(LDFLAGS)
+install: ${BUILT_PROGRAMS}
+	mkdir -p ${bindir}
+	install -p ${BUILT_PROGRAMS} ${bindir}
 
 clean:
-	cd src/htslib && make clean
-	cd src/modular-boost && ./b2 --clean-all
-	rm -f $(TARGETS) $(TARGETS:=.o) .htslib .boost
+	if [ -r src/htslib/Makefile ]; then cd src/htslib && $(MAKE) clean; fi
+	rm -f $(TARGETS) $(TARGETS:=.o) ${SUBMODULES}
+
+distclean: clean
+	rm -f ${BUILT_PROGRAMS}
+
+.PHONY: clean distclean install all

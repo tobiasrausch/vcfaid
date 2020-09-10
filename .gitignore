@@ -1,5 +1,5 @@
 .htslib
-.boost
+bin/
 src/gq
 src/subset
 src/gqToMissing
